@@ -1,11 +1,6 @@
 var showHtml = function (elem) {
     };
 
-if (window.aardvark) {
-    window.aardvark.showMessage('Launching...');
-    window.aardvark.start();
-} else {
-
 var aardvark = {
 
 isBookmarklet: true,
@@ -1944,6 +1939,4 @@ escapeForJavascript : function (s) {
   }
 });
 
-window.aardvark = aardvark;
-document.aardvark = aardvark;
-}
+// alert(window.aardvark);
