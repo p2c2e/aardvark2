@@ -1,11 +1,13 @@
 var showHtml = function (elem) {
     };
 
+var basePath = document.getElementById('extensionpath').getAttribute("path");
 var aardvark = {
 
 isBookmarklet: true,
-resourcePrefix: "http://karmatics.com/aardvark/",
-srcFiles: [
+// resourcePrefix: "http://karmatics.com/aardvark/",
+resourcePrefix: basePath,
+  srcFiles: [
   'aardvarkStrings.js',
   'aardvarkUtils.js',
   'aardvarkDBox.js',
@@ -1938,5 +1940,3 @@ escapeForJavascript : function (s) {
   return s.replace(new RegExp("\n", "g"), " ").replace(new RegExp("\t", "g"), " ").replace(new RegExp("\"", "g"), "\\\"").replace(new RegExp("\'", "g"), "\\'").replace(new RegExp("<", "g"), "&lt;").replace(new RegExp(">", "g"), "&gt;");
   }
 });
-
-// alert(window.aardvark);

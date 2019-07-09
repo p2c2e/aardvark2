@@ -17,6 +17,6 @@
       "default_title": "Launch Aardvark Page Editor",
       "default_icon": "icon.png"
   },
-  "web_accessible_resources": ["allinone.js"],
+  "web_accessible_resources": ["allinone.js", "aardvark.gif", "aardvarkhelp.gif", "closedbox.gif"],
   "manifest_version": 2
 }
