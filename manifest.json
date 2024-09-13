@@ -1,28 +1,36 @@
 {
   "name": "Aardvark2",
-  "description": "A quick repackaging of Karmatics Aardvark extension",
-  "version": "1.2",
+  "description": "A quick repackaging of Karmatics Aardvark extension. Manifest-V3",
+  "version": "3.0",
   "permissions": [
-    "activeTab"
+    "activeTab",
+    "scripting"
   ],
   "background": {
-    "scripts": [
-      "background.js"
-    ],
-    "persistent": false
+    "service_worker": "background.js"
   },
-  "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'",
-
-  "browser_action": {
-      "default_title": "Launch Aardvark Page Editor",
-      "default_icon": "icon.png"
+  "action": {
+    "default_title": "Launch Aardvark Page Editor",
+    "default_icon": "icon.png"
   },
-  "web_accessible_resources": ["allinone.js", "aardvark.gif", "aardvarkhelp.gif", "closedbox.gif",
-    "aardvarkStrings.js",
-    "aardvarkUtils.js",
-    "aardvarkDBox.js",
-    "aardvarkCommands.js",
-    "aardvarkMain.js"
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "allinone.js",
+        "aardvark.gif",
+        "aardvarkhelp.gif",
+        "closedbox.gif",
+        "aardvarkStrings.js",
+        "aardvarkUtils.js",
+        "aardvarkDBox.js",
+        "aardvarkCommands.js",
+        "aardvarkMain.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
   ],
-  "manifest_version": 2
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "manifest_version": 3
 }

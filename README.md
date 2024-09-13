@@ -9,3 +9,5 @@ These version now suffer from mixed-content (https/http) and CORS issues.
 I took the liberty of taking all the scripts and bundling them into 
 a chrome extension.
 
+Manifest-V3
+

@@ -3,7 +3,7 @@
 function loadScript(scriptName, callback) {
     var scriptEl = document.createElement('script');
     scriptEl.setAttribute('id', scriptName);
-    scriptEl.src = chrome.extension.getURL(scriptName);
+    scriptEl.src = chrome.runtime.getURL(scriptName);
     scriptEl.addEventListener('load', callback, false);
     document.head.appendChild(scriptEl);
 };
