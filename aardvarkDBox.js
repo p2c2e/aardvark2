@@ -81,6 +81,7 @@ this.bgColor = bgColor;
 this.id = aardvark.dBoxId;
 
 outerDiv = aardvark.doc.createElement ("DIV");
+outerDiv.setAttribute("data-aardvark-ui", "");
 // outerDiv.style.visibility = "hidden";
 outerDiv.style.padding = "0";
 outerDiv.style.margin = "0";

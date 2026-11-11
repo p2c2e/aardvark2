@@ -19,6 +19,14 @@ hidden in print output and uses a shadow root to isolate its styling.
 Developer integrations that used the page's `window.aardvark`, `window.elem1`,
 `Logger` or `SimplePath` can no longer access the isolated controller. This is an
 intentional boundary; the editor does not require page JavaScript integrations.
+## Printing
+
+Brave's normal print command uses print-only CSS to hide editor outlines, labels,
+key feedback, dialogs and the active glow. Page edits remain in the printed
+content. No inline visibility or history changes are made for print preview, so
+closing preview restores the screen UI automatically. Quit removes the print
+stylesheet along with the other editor-owned styles.
+
 ## Keyboard safety
 
 Commands use unmodified single-letter keys outside input, textarea, select,

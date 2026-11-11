@@ -30,6 +30,7 @@ for (i=0; i<4; i++) {
   s.left = "20px";
   s.zIndex = "5000";
   d.isAardvark = true; // mark as ours
+  d.setAttribute("data-aardvark-ui", "");
   this.borderElems[i] = d;
   this.doc.body.appendChild (d);
   }
@@ -50,6 +51,7 @@ be[3].style.borderRightStyle = "solid";
 d = this.doc.createElement ("DIV");
 this.setElementStyleDefault (d, "#fff0cc");
 d.isAardvark = true; // mark as ours
+  d.setAttribute("data-aardvark-ui", "");
 d.isLabel = true; //
 d.style.borderTopWidth = "0";
 d.style.MozBorderRadiusBottomleft = "6px";
@@ -64,6 +66,7 @@ this.labelElem = d;
 d = this.doc.createElement ("DIV");
 this.setElementStyleDefault (d, "#dfd");
 d.isAardvark = true; // mark as ours
+  d.setAttribute("data-aardvark-ui", "");
 d.isKeybox = true; //
 d.style.backgroundColor = "#cfc";
 d.style.zIndex = "5008";
@@ -433,9 +436,18 @@ return false;
 
 //-------------------------------------------------
 // this is the main entry point when starting aardvark
+installPrintStyles : function () {
+var style = this.doc.createElement("style");
+style.setAttribute("data-aardvark-print-style", "");
+style.textContent = "@media print { [data-aardvark-ui] { display: none !important; } }";
+this.doc.head.appendChild(style);
+this.styleNodes.push(style);
+},
+
 showActiveGlow : function () {
 var host = this.doc.createElement("div");
 host.isAardvark = true;
+host.setAttribute("data-aardvark-ui", "");
 host.setAttribute("data-aardvark-active-glow", "");
 host.setAttribute("aria-hidden", "true");
 host.style.setProperty("all", "initial", "important");
@@ -483,6 +495,7 @@ if (this.doc.aardvarkRunning) {
   }
 else {
   this.makeElems ();
+  this.installPrintStyles();
   this.selectedElem = null;
 
   // need this to be page specific (for extension)...if you

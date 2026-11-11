@@ -332,6 +332,59 @@ test('keyboard suppresses only successfully handled unmodified commands', t => {
   assert.ok(document.getElementById('selected'));
 });
 
+test('many activation cycles leave exactly one overlay set and no UI when off', t => {
+  const {document, editor} = withFixture(t);
+  for (let cycle = 0; cycle < 20; cycle++) {
+    assert.equal(document.querySelectorAll('[data-aardvark-ui]').length, 7);
+    assert.equal(document.querySelectorAll('[data-aardvark-active-glow]').length, 1);
+    assert.equal(document.querySelectorAll('[data-aardvark-print-style]').length, 1);
+    editor.showMenu();
+    editor.showHelpTip();
+    editor.quit();
+    assert.equal(document.querySelectorAll('[data-aardvark-ui]').length, 0);
+    assert.equal(document.querySelectorAll('[data-aardvark-print-style]').length, 0);
+    assert.equal(editor.styleNodes.length, 0);
+    assert.equal(editor.dboxTimers.length, 0);
+    assert.equal(editor.dBoxArray.length, 0);
+    editor.start();
+  }
+});
+
+test('print-only styles cover editor overlays without reverting page edits', t => {
+  const {document, editor} = withFixture(t);
+  editor.viewSource(document.getElementById('selected'));
+  editor.showMenu();
+  const ui = [...editor.borderElems, editor.labelElem, editor.keyboxElem,
+    editor.activeGlow, ...Array.from(document.querySelectorAll('.aardvarkdbox'))];
+  for (const node of ui) {
+    assert.ok(node);
+    assert.equal(node.hasAttribute('data-aardvark-ui'), true);
+  }
+  const style = document.querySelector('[data-aardvark-print-style]');
+  assert.ok(style);
+  const media = style.sheet.cssRules[0];
+  assert.equal(media.conditionText, 'print');
+  assert.equal(media.cssRules[0].selectorText, '[data-aardvark-ui]');
+  assert.equal(media.cssRules[0].style.getPropertyValue('display'), 'none');
+  assert.equal(media.cssRules[0].style.getPropertyPriority('display'), 'important');
+  const sibling = document.getElementById('sibling');
+  editor.removeElement(sibling);
+  const state = ui.map(node => node.getAttribute('style'));
+  document.defaultView.dispatchEvent(new document.defaultView.Event('beforeprint'));
+  document.defaultView.dispatchEvent(new document.defaultView.Event('afterprint'));
+  assert.deepEqual(ui.map(node => node.getAttribute('style')), state);
+  assert.equal(document.getElementById('sibling'), null);
+  assert.equal(document.aardvarkRunning, true);
+  editor.quit();
+  assert.equal(style.isConnected, false);
+  assert.equal(document.querySelectorAll('[data-aardvark-ui]').length, 0);
+  assert.equal(document.getElementById('sibling'), null);
+  editor.start();
+  assert.equal(document.querySelectorAll('[data-aardvark-print-style]').length, 1);
+  editor.undo();
+  assert.equal(document.getElementById('sibling'), sibling);
+});
+
 test('active glow survives edits and q removes it and notifies the service worker', t => {
   const {window, document, editor, messages} = withFixture(t);
   const glow = document.querySelector('[data-aardvark-active-glow]');
