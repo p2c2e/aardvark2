@@ -1,23 +1,3 @@
-// alert('In Wrapper');
-
-function loadScript(scriptName, callback) {
-    var scriptEl = document.createElement('script');
-    scriptEl.setAttribute('id', scriptName);
-    scriptEl.src = chrome.runtime.getURL(scriptName);
-    scriptEl.addEventListener('load', callback, false);
-    document.head.appendChild(scriptEl);
-};
-
-function removeScript(scriptName) {
-    var scr = document.getElementById('allinone.js')
-    document.head.removeChild(scr);
-}
-
-var scr = document.getElementById('allinone.js');
-if (scr) {
-    // already script is loaded ...
-    removeScript('allinone.js');
-    loadScript('allinone.js', null);
-} else {
-    loadScript('allinone.js', null);
-}
+// Compatibility entry point; the service worker now loads scripts directly.
+if (globalThis.aardvark && globalThis.aardvark.ready)
+  globalThis.aardvark.start();

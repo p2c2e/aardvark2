@@ -1,32 +1,31 @@
 aardvark.loadObject ({
 
 killDbox : function(id) {
-var d = aardvark.doc.getElementById ("aardvarkdbox-" + id);
-if (d) {
- aardvark.doc.body.removeChild (d);
- return true;
- }
-return false;
+var box = this.dBoxArray[id];
+if (!box)
+  return false;
+box.close();
+return true;
 },
 
 dboxMouseDown : function(evt) {
 if (!evt)
  evt = this.window.event;
- 
+
 var s = "aardvarkdbox-";
 var killDbox = false;
 var elem = aardvark.getElemFromEvent (evt);
 var doClose = false, doSelect = false, index;
- 
+
 while (elem) {
  if (elem.isAardvarkSelectLink)
   doSelect = true;
  else if (elem.isAardvarkCloseButton)
   doClose = true;
- 
+
  if (elem.id && elem.id.indexOf (s) == 0) {
   if (doSelect) {
-   var e; 
+   var e;
    for (var i=0; i<elem.childNodes.length; i++) {
     e = elem.childNodes.item(i);
     if (e.isDboxInnerContainer) {
@@ -35,7 +34,7 @@ while (elem) {
     }
    }
   else if (doClose) {
-   aardvark.doc.body.removeChild (elem);
+   aardvark.killDbox(parseInt(elem.id.substring(s.length), 10));
    aardvark.dBoxArray[parseInt (elem.id.substring(s.length))] = null;
    }
   else {
@@ -103,10 +102,10 @@ if (dragger) {
  draggerDiv.style.padding = "2px";
  draggerDiv.style.margin = "0";
  draggerDiv.style.height = "14px";
- 
+
  outerDiv.appendChild (draggerDiv);
  var closer = aardvark.doc.createElement("IMG");
- 
+
  closer.src = aardvark.resourcePrefix + "closedbox.gif";
  closer.style.cssFloat = "left";
  closer.style.styleFloat = "left";
@@ -123,8 +122,8 @@ if (dragger) {
   a.innerHTML = "select all";
   a.style.fontFamily = "arial";
   a.style.padding = '0';
-  a.style.margin = '0';  
-  a.style.textDecoration = 'underline';  
+  a.style.margin = '0';
+  a.style.textDecoration = 'underline';
   a.style.cssFloat = "right";
   a.style.styleFloat = "right";
   a.style.color = "#008";
@@ -203,7 +202,7 @@ if (h > dims.height-45)
  h = dims.height-45;
 this.outerContainer.style.height = (h + draggerHeight) + "px";
 this.innerContainer.style.height = h + "px";
- 
+
 if ((diff = this.innerContainer.offsetHeight-h) > 0)
  this.innerContainer.style.height = (h - diff) + "px";
 
@@ -230,7 +229,9 @@ aardvark.setAardvarkElem (this.outerContainer);
 }
 
 AardvarkDBox.prototype.close = function () {
-aardvark.doc.body.removeChild (this.outerContainer)
+this.outerContainer.remove();
+if (aardvark.dBoxArray[this.id] === this)
+  aardvark.dBoxArray[this.id] = null;
 };
 
 function highlightText(elem) {

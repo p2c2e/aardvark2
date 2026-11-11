@@ -28,7 +28,7 @@ getPos : function (elem) {
     while (elem.offsetParent) {
       leftX += elem.offsetLeft;
       leftY += elem.offsetTop;
-      
+
       if (elem != originalElement && elem != document.body && elem != document.documentElement) {
         leftX -= elem.scrollLeft;
         leftY -= elem.scrollTop;
@@ -66,14 +66,14 @@ setHandler : function(obj, eventName, code) {
 // move a div (or whatever) to an x y location
 moveElem : function (o, x, y) {
   o = o.style;
-  
+
   if (aardvark.doc.all) {
     o.pixelLeft=x;
     o.pixelTop=y;
     }
   else {
     o.left=x + "px";
-    o.top=y + "px";     
+    o.top=y + "px";
     }
   },
 
@@ -85,14 +85,14 @@ getElemFromEvent : function (evt) {
 //-------------------------------------------------
 getWindowDimensions : function () {
   var out = {};
-  
+
   if (aardvark.window.pageXOffset) {
     out.scrollX = aardvark.window.pageXOffset;
     out.scrollY = aardvark.window.pageYOffset;
     }
   else if (aardvark.doc.documentElement) {
-    out.scrollX = aardvark.doc.body.scrollLeft + 
-          aardvark.doc.documentElement.scrollLeft; 
+    out.scrollX = aardvark.doc.body.scrollLeft +
+          aardvark.doc.documentElement.scrollLeft;
     out.scrollY = aardvark.doc.body.scrollTop +
           aardvark.doc.documentElement.scrollTop;
     }
@@ -118,17 +118,17 @@ leafElems : {IMG:true, HR:true, BR:true, INPUT:true},
 // this doesn't work on IE, but its got its own outerHTML property
 getOuterHtml : function (node) {
   var str = "";
-  
+
   switch (node.nodeType) {
     case 1: { // ELEMENT_NODE
       var isLeaf = (node.childNodes.length == 0 && aardvark.leafElems[node.nodeName]);
-  
+
       str += "<" + node.nodeName.toLowerCase() + " ";
       for (var i=0; i<node.attributes.length; i++) {
         if (node.attributes.item(i).nodeValue != null &&
           node.attributes.item(i).nodeValue != '') {
           str += node.attributes.item(i).nodeName +
-            "='" + 
+            "='" +
             node.attributes.item(i).nodeValue +
             "' ";
           }
@@ -137,16 +137,16 @@ getOuterHtml : function (node) {
         str += " />";
       else {
         str += ">";
-        
+
         for (var i=0; i<node.childNodes.length; i++)
           str += aardvark.getOuterHtml(node.childNodes.item(i));
-        
+
         str += "</" +
           node.nodeName.toLowerCase() + ">"
         }
       }
       break;
-        
+
     case 3: //TEXT_NODE
       str += node.nodeValue;
       break;
@@ -160,20 +160,21 @@ createCSSRule : function (selector, declaration) {
   // test for IE (can i just use "aardvark.doc.all"?)
   var ua = navigator.userAgent.toLowerCase();
   var isIE = (/msie/.test(ua)) && !(/opera/.test(ua)) && (/win/.test(ua));
-  
+
   // create the style node for all browsers
   var style_node = aardvark.doc.createElement("style");
   style_node.setAttribute("type", "text/css");
   style_node.setAttribute("media", "screen");
   style_node.isAardvark = true;
-  
+
   // append a rule for good browsers
   if (!isIE)
     style_node.appendChild(aardvark.doc.createTextNode(selector + " {" + declaration + "}"));
-  
+
   // append the style node
   aardvark.doc.getElementsByTagName("head")[0].appendChild(style_node);
-  
+  aardvark.styleNodes.push(style_node);
+
   // use alternative methods for IE
   if (isIE && aardvark.doc.styleSheets && aardvark.doc.styleSheets.length > 0) {
     var last_style_node = aardvark.doc.styleSheets[aardvark.doc.styleSheets.length - 1];
@@ -194,7 +195,24 @@ trimSpaces : function (s) {
   return s;
   },
 
+scheduleDboxClose : function (box) {
+  var editor = this;
+  var timer = setTimeout(function () {
+    var index = editor.dboxTimers.indexOf(timer);
+    if (index !== -1)
+      editor.dboxTimers.splice(index, 1);
+    box.close();
+  }, 2000);
+  this.dboxTimers.push(timer);
+},
+
+escapeHTML : function (value) {
+  return String(value).replace(/[&<>"']/g, function (character) {
+    return {"&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"}[character];
+  });
+},
+
 escapeForJavascript : function (s) {
-  return s.replace(new RegExp("\n", "g"), " ").replace(new RegExp("\t", "g"), " ").replace(new RegExp("\"", "g"), "\\\"").replace(new RegExp("\'", "g"), "\\'").replace(new RegExp("<", "g"), "&lt;").replace(new RegExp(">", "g"), "&gt;");
+  return this.escapeHTML(JSON.stringify(String(s)).slice(1, -1));
   }
 });

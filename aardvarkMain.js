@@ -7,9 +7,7 @@ dbox.innerContainer.innerHTML = "<p style='clear: both; margin: 3px 0 0 0;'><img
 dbox.innerContainer.style.width = "14em";
 dbox.innerContainer.style.height = "54px";
 dbox.show ();
-  setTimeout(function() {
-    aardvark.killDbox(dbox.id);
-  }, 2000);
+  this.scheduleDboxClose(dbox);
 
 return true;
 },
@@ -52,7 +50,7 @@ be[3].style.borderRightStyle = "solid";
 d = this.doc.createElement ("DIV");
 this.setElementStyleDefault (d, "#fff0cc");
 d.isAardvark = true; // mark as ours
-d.isLabel = true; // 
+d.isLabel = true; //
 d.style.borderTopWidth = "0";
 d.style.MozBorderRadiusBottomleft = "6px";
 d.style.MozBorderRadiusBottomright = "6px";
@@ -66,7 +64,7 @@ this.labelElem = d;
 d = this.doc.createElement ("DIV");
 this.setElementStyleDefault (d, "#dfd");
 d.isAardvark = true; // mark as ours
-d.isKeybox = true; // 
+d.isKeybox = true; //
 d.style.backgroundColor = "#cfc";
 d.style.zIndex = "5008";
 this.doc.body.appendChild (d);
@@ -125,7 +123,7 @@ else if (this.labelDrawnHigh) {
   this.labelElem.style.MozBorderRadiusTopright = "";
   this.labelElem.style.WebkitBorderTopLeftRadius = "";
   this.labelElem.style.WebkitBorderTopRightRadius = "";
-  delete (this.labelDrawnHigh); 
+  delete (this.labelDrawnHigh);
   }
 this.moveElem (this.labelElem, pos.x+2, y);
 this.labelElem.style.visibility = "visible";
@@ -134,16 +132,16 @@ this.labelElem.style.visibility = "visible";
 //-------------------------------------------------
 removeBoxFromBody : function () {
 if (this.labelElem) {
-  this.doc.body.removeChild(this.labelElem);
+  this.labelElem.remove();
   this.labelElem = null;
   }
 if (this.keyboxElem) {
-  this.doc.body.removeChild(this.keyboxElem);
+  this.keyboxElem.remove();
   this.keyboxElem = null;
   }
 if (this.borderElems != null) {
   for (var i=0; i<4; i++)
-    this.doc.body.removeChild(this.borderElems[i]);
+    this.borderElems[i].remove();
   this.borderElems = null;
   }
 },
@@ -162,7 +160,8 @@ if (this.borderElems != null) {
 
 //-------------------------------------------------
 hideKeybox : function () {
-this.keyboxElem.style.display = "none";
+if (this.keyboxElem)
+  this.keyboxElem.style.display = "none";
 this.keyboxTimeoutHandle = null;
 },
 
@@ -170,18 +169,18 @@ this.keyboxTimeoutHandle = null;
 showKeybox : function (command){
 if (this.keyboxElem == null)
   return;
-  
+
 if (command.keyOffset >= 0) {
   var s1 = command.name.substring(0, command.keyOffset);
   var s2 = command.name.substring(command.keyOffset+1);
-  
+
   this.keyboxElem.innerHTML = s1 + "<b style='font-size:2em;'>" +
       command.name.charAt(command.keyOffset) + "</b>" + s2;
   }
 else {
   this.keyboxElem.innerHTML = command.name;
   }
-  
+
 var dims = this.getWindowDimensions ();
 var y = dims.scrollY + this.mousePosY + 10;
 if (y < 0)
@@ -250,7 +249,7 @@ while (elem) {
       }
     else if (elem.currentStyle){
       if (elem.currentStyle["display"] == 'block')
-        return elem;   
+        return elem;
       }
     }
   else if (this.validIfNotInlineElements[elem.tagName]){
@@ -261,7 +260,7 @@ while (elem) {
       }
     else if (elem.currentStyle) {
       if (elem.currentStyle["display"] != 'inline')
-        return elem;   
+        return elem;
       }
     }
   elem = elem.parentNode;
@@ -273,9 +272,9 @@ return elem;
 makeElementLabelString : function (elem) {
 var s = "<b style='color:#000'>" + elem.tagName.toLowerCase() + "</b>";
 if (elem.id != '')
-  s += ", id: " + elem.id;
+  s += ", id: " + this.escapeHTML(elem.id);
 if (elem.className != '')
-  s += ", class: " + elem.className;
+  s += ", class: " + this.escapeHTML(elem.getAttribute("class") || "");
 return s;
 },
 
@@ -309,19 +308,19 @@ aardvark.mousePosX  = evt.clientX;
 aardvark.mousePosY = evt.clientY;
 
 if (aardvark.dragElement) {
-  aardvark.moveElem (aardvark.dragElement, 
+  aardvark.moveElem (aardvark.dragElement,
       (aardvark.mousePosX - aardvark.dragClickX) + aardvark.dragStartPos.x,
       (aardvark.mousePosY - aardvark.dragClickY) + aardvark.dragStartPos.y);
   aardvark.mouseMoved = false;
   return true;
   }
 
-// if it hasn't actually moved (for instance, if something 
+// if it hasn't actually moved (for instance, if something
 // changed under it causing a mouseover), we want to know that
 aardvark.mouseMoved = true;
 return false;
 },
- 
+
 //-------------------------------------------------
 mouseOver : function (evt) {
 if (!evt)
@@ -341,7 +340,7 @@ if (elem == null) {
   aardvark.clearBox();
   return;
   }
-  
+
 // note: this assumes that:
 // 1. our display elements would be selectable types, and
 // 2. elements inside display elements would not
@@ -374,7 +373,7 @@ if (aardvark.isOnAardvarkElem && aardvark.didWider) {
   }
 aardvark.isOnAardvarkElem = false;
 aardvark.didWider = false;
-  
+
 if (elem == aardvark.selectedElem)
   return;
 aardvark.widerStack = null;
@@ -404,7 +403,7 @@ if (command) {
       aardvark.showKeybox (command);
     }
   else {
-    if (aardvark.selectedElem && 
+    if (aardvark.selectedElem &&
         (command.func.call (aardvark, aardvark.selectedElem) == true))
       aardvark.showKeybox (command);
     }
@@ -414,12 +413,44 @@ if (c < 'a' || c > 'z')
 if (evt.preventDefault)
   evt.preventDefault ();
 else
-  evt.returnValue = false; 
+  evt.returnValue = false;
 return false;
 },
 
 //-------------------------------------------------
 // this is the main entry point when starting aardvark
+showActiveGlow : function () {
+var host = this.doc.createElement("div");
+host.isAardvark = true;
+host.setAttribute("data-aardvark-active-glow", "");
+host.setAttribute("aria-hidden", "true");
+host.style.setProperty("all", "initial", "important");
+host.style.setProperty("position", "fixed", "important");
+host.style.setProperty("inset", "0", "important");
+host.style.setProperty("z-index", "2147483647", "important");
+host.style.setProperty("pointer-events", "none", "important");
+var shadow = host.attachShadow({mode: "closed"});
+var style = this.doc.createElement("style");
+style.textContent = ":host { pointer-events: none !important; } " +
+  ".glow { position: absolute; inset: 0; pointer-events: none; " +
+  "box-shadow: inset 0 0 14px 4px rgba(34, 197, 94, 0.55); } " +
+  "@media print { .glow { display: none !important; } }";
+var glow = this.doc.createElement("div");
+glow.className = "glow";
+shadow.appendChild(style);
+shadow.appendChild(glow);
+this.doc.body.appendChild(host);
+this.activeGlow = host;
+},
+
+notifyActiveState : function () {
+try {
+  chrome.runtime.sendMessage({type: "aardvark-active-state"}).catch(function () {});
+} catch (error) {
+  // A reload can invalidate this document's extension context.
+}
+},
+
 start : function () {
 this.loadCommands();
 
@@ -437,25 +468,19 @@ if (this.doc.aardvarkRunning) {
   return;
   }
 else {
-  this.makeElems (); 
+  this.makeElems ();
   this.selectedElem = null;
-  
-  // need this to be page specific (for extension)...if you 
+
+  // need this to be page specific (for extension)...if you
   // change the page, aardvark will not be running
   this.doc.aardvarkRunning = true;
-  
-  if (this.doc.all) {
-    this.doc.attachEvent ("onmouseover", this.mouseOver);
-    this.doc.attachEvent ("onmousemove", this.mouseMove);
-    this.doc.attachEvent ("onmouseup", this.mouseUp);
-    this.doc.attachEvent ("onkeypress", this.keyDown);
-    }
-  else {
-    this.doc.addEventListener ("mouseover", this.mouseOver, false);
-    this.doc.addEventListener ("mouseup", this.mouseUp, false);
-    this.doc.addEventListener ("mousemove", this.mouseMove, false);
-    this.doc.addEventListener ("keypress", this.keyDown, false);
-    }
+  this.showActiveGlow();
+  this.notifyActiveState();
+
+  this.doc.addEventListener("mouseover", this.mouseOver, false);
+  this.doc.addEventListener("mouseup", this.mouseUp, false);
+  this.doc.addEventListener("mousemove", this.mouseMove, false);
+  this.doc.addEventListener("keypress", this.keyDown, false);
 
   // show tip if its been more than an hour
   if (!this.isBookmarklet) {
@@ -466,8 +491,8 @@ else {
       this.prefManager.setIntPref("extensions.aardvark@rob.brown.tipLastShown",
         this.tipLastShown);
       this.showHelpTip();
-      } 
+      }
     }
-  } 
+  }
 }
 });

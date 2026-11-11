@@ -1,0 +1,16 @@
+{
+  "name": "aardvark2",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Regression tests for the Aardvark page editor",
+  "scripts": {
+    "test": "node --test tests/*.test.cjs",
+    "check": "node --check background.js && node --check allinone.js && node --check aardvarkHistory.js && node --check aardvarkCommands.js && node --check aardvarkMain.js && node --check aardvarkUtils.js && node --check aardvarkDBox.js && node --check aardvarkStrings.js && node --check wrapper.js"
+  },
+  "engines": {
+    "node": ">=24.15.0"
+  },
+  "devDependencies": {
+    "jsdom": "31.0.0"
+  }
+}

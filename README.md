@@ -11,3 +11,9 @@ a chrome extension.
 
 Manifest-V3
 
+
+Load this directory as an unpacked Chrome extension to use the current code.
+The prebuilt CRX in `build/` is historical.
+
+See [editor documentation](docs/README.editor.md) for undo/redo behavior,
+limitations, development setup and regression tests.

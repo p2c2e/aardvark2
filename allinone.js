@@ -1,75 +1,24 @@
-var showHtml = function (elem) {
-};
-
-var basePath = document.getElementById('extensionpath').getAttribute("path");
-
-var aardvark = {
-
-  isBookmarklet: true,
-  resourcePrefix: basePath,
-  srcFiles: [
-    'aardvarkStrings.js',
-    'aardvarkUtils.js',
-    'aardvarkDBox.js',
-    'aardvarkCommands.js',
-    'aardvarkMain.js'
-  ],
-
-//------------------------------------------------
-// onload function for script elements
-  loadObject: function  (obj) {
-    var c = 0;
-
-    for (var x in obj) {
-      if (aardvark[x] == undefined)
-        aardvark[x] = obj[x];
-      c++;
-    }
-
-    if (this.objectsLeftToLoad == undefined) {
-      this.objectsLeftToLoad = this.srcFiles.length;
-    }
-    this.objectsLeftToLoad--;
-
-    if (this.objectsLeftToLoad < 1) {
-      // add anything here you want to happen when it is loaded
-      // copy our own functions etc over aardvark's
-
-      // start aardvark and show its help tip
-      this.start ();
-      this.showHelpTip(0);
-
-      // add our custom commands
-      aardvark.addCommand ("xpath", function(e) {
-        if (window.SimplePath)
-          SimplePath.showPathInSnippetEditor(e);
-        else
-          alert("please load snippet editor");
-      });
-      // add our custom commands
-    }
-  }
-};
-
-
-// load the aardvark code from karmatics.com
 (function () {
-
-// leave commented out if you wish to have it load a new
-// copy each time (for dev purposes...no need to refresh page)
-  /*if (window.aardvark) {
-    aardvark.start ();
+  if (globalThis.aardvark && globalThis.aardvark.ready)
     return;
-    } */
 
-// anti caching....dev only (leave empty string otherwise)
-  var ensureFresh = ""; // "?" + Math.round(Math.random()*100);
+  globalThis.aardvark = {
+    isBookmarklet: true,
+    resourcePrefix: chrome.runtime.getURL(""),
+    objectsLeftToLoad: 6,
+    ready: false,
+    dboxTimers: [],
+    styleNodes: [],
 
-  for (var i=0; i<aardvark.srcFiles.length; i++) {
-    var scriptElem = document.createElement('script');
-    scriptElem.isAardvark = true;
-    scriptElem.src = ((aardvark.srcFiles[i].indexOf("http://") == 0) ?
-        aardvark.srcFiles[i] : aardvark.resourcePrefix + aardvark.srcFiles[i]) + ensureFresh;
-    document.body.appendChild(scriptElem);
-  }
+    loadObject: function (object) {
+      if (this.ready)
+        return;
+      for (var name in object) {
+        if (Object.prototype.hasOwnProperty.call(object, name))
+          this[name] = object[name];
+      }
+      this.objectsLeftToLoad--;
+      this.ready = this.objectsLeftToLoad === 0;
+    }
+  };
 })();

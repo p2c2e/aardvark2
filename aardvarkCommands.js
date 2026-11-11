@@ -14,6 +14,8 @@ var keyCommands = [
   ["wider", this.wider],
   ["narrower", this.narrower],
   ["undo", this.undo, true],
+  ["redo", this.redo, true, null, "y"],
+  ["restore edits", this.restoreOriginal, true, null, "o"],
   ["quit", this.quit, true],
   ["remove", this.removeElement],
   ["kill", this.rip, null, "extension"],
@@ -23,7 +25,7 @@ var keyCommands = [
   ["colorize", this.colorize],
   ["view source", this.viewSource],
   ["javascript", this.makeJavascript],
-  ["paste", this.domPath],
+  ["paste", this.paste],
   ["help", this.showMenu, true],
   ["xpath", this.getElementXPath],
   ["element path", this.getElementPath],
@@ -51,7 +53,7 @@ else {
   if (mode == "bookmarklet")
     return;
   }
-    
+
 if (this.strings[name] && this.strings[name] != "")
   name = this.strings[name];
 
@@ -74,18 +76,18 @@ var command = {
     keystroke: keystroke,
     keyOffset: keyOffset,
     func: func
-    } 
+    }
 if (noElementNeeded)
-  command.noElementNeeded = true; 
- 
+  command.noElementNeeded = true;
+
 for (var i=0; i<this.keyCommands.length; i++) {
   if (this.keyCommands[i].keystroke == keystroke) {
     /*if (!suppressMessage)
       this.showMessage ("<p style='color: #000; margin: 3px 0 0 0;'>command \"<b>" + this.keyCommands[i].name + "</b>\" replaced with \"<b>" + name + "</b>\"</p>");*/
     this.keyCommands[i] = command;
     return;
-    }    
-  } 
+    }
+  }
 if (!suppressMessage)
   this.showMessage ("<p style='color: #000; margin: 3px 0 0 0;'>command \"<b>" + name + "</b>\" added</p>");
 this.keyCommands.push (command);
@@ -98,7 +100,7 @@ if (window.RemoveItPermanently)
   RemoveItPermanently.doRipNode(elem);
 else {
   var dbox = new AardvarkDBox ("#fff", true);
-  dbox.innerContainer.innerHTML = this.strings.ripHelp;  
+  dbox.innerContainer.innerHTML = this.strings.ripHelp;
   dbox.show ();
   }
 return true;
@@ -110,8 +112,8 @@ if (elem && elem.parentNode) {
   var newElem = this.findValidElement (elem.parentNode);
   if (!newElem)
     return false;
-  
-  if (this.widerStack && this.widerStack.length>0 && 
+
+  if (this.widerStack && this.widerStack.length>0 &&
     this.widerStack[this.widerStack.length-1] == elem) {
     this.widerStack.push (newElem);
     }
@@ -119,7 +121,7 @@ if (elem && elem.parentNode) {
     this.widerStack = [elem, newElem];
     }
   this.selectedElem = newElem;
-  this.showBoxAndLabel (newElem, 
+  this.showBoxAndLabel (newElem,
       this.makeElementLabelString (newElem));
   this.didWider = true;
   return true;
@@ -130,12 +132,12 @@ return false;
 //------------------------------------------------------------
 narrower : function (elem) {
 if (elem) {
-  if (this.widerStack && this.widerStack.length>1 && 
+  if (this.widerStack && this.widerStack.length>1 &&
     this.widerStack[this.widerStack.length-1] == elem) {
     this.widerStack.pop();
     newElem = this.widerStack[this.widerStack.length-1];
     this.selectedElem = newElem;
-    this.showBoxAndLabel (newElem, 
+    this.showBoxAndLabel (newElem,
         this.makeElementLabelString (newElem));
     this.didWider = true;
     return true;
@@ -143,29 +145,37 @@ if (elem) {
   }
 return false;
 },
-  
+
 //------------------------------------------------------------
 quit : function () {
 this.doc.aardvarkRunning = false;
-
-if (this.doc.all) {
-  this.doc.detachEvent ("onmouseover", this.mouseOver);
-  this.doc.detachEvent ("onmousemove", this.mouseMove);
-  this.doc.detachEvent ("onkeypress", this.keyDown);
-  this.doc.detachEvent ("onmouseup", this.mouseUp, false);
-  }
-else {
-  this.doc.removeEventListener("mouseover", this.mouseOver, false);
-  this.doc.removeEventListener("mousemove", this.mouseMove, false);
-  this.doc.removeEventListener("mouseup", this.mouseUp, false);
-  this.doc.removeEventListener("keypress", this.keyDown, false);
-  }
-
-this.removeBoxFromBody ();
-
-delete (this.selectedElem);
-if (this.widerStack)
-  delete (this.widerStack);
+if (this.activeGlow)
+  this.activeGlow.remove();
+this.activeGlow = null;
+this.notifyActiveState();
+this.doc.removeEventListener("mouseover", this.mouseOver, false);
+this.doc.removeEventListener("mousemove", this.mouseMove, false);
+this.doc.removeEventListener("mouseup", this.mouseUp, false);
+this.doc.removeEventListener("keypress", this.keyDown, false);
+clearTimeout(this.keyboxTimeoutHandle);
+this.keyboxTimeoutHandle = null;
+this.dboxTimers.forEach(clearTimeout);
+this.dboxTimers.length = 0;
+for (var i=0; i<this.dBoxArray.length; i++) {
+  if (this.dBoxArray[i])
+    this.dBoxArray[i].close();
+}
+this.dBoxArray.length = 0;
+this.dBoxId = 0;
+this.helpBoxId = null;
+this.styleNodes.forEach(function (node) { node.remove(); });
+this.styleNodes.length = 0;
+this.doc.didDboxCss = false;
+this.doc.didViewSourceDboxCss = false;
+this.removeBoxFromBody();
+this.selectedElem = null;
+this.widerStack = null;
+this.dragElement = null;
 return true;
 },
 
@@ -221,231 +231,128 @@ return true;
 //------------------------------------------------------------
 
 colorize : function (elem) {
-elem.style.backgroundColor = "#" + 
-    Math.floor(Math.random()*16).toString(16) + 
-    Math.floor(Math.random()*16).toString(16) + 
-    Math.floor(Math.random()*16).toString(16);
-elem.style.backgroundImage = "";
-return true;
+var color = "#" + Math.floor(Math.random() * 0x1000000).toString(16).padStart(6, "0");
+return this.editAttributes(elem, ["style"], false, function () {
+  elem.style.backgroundColor = color;
+  elem.style.backgroundImage = "none";
+});
 },
 
-//------------------------------------------------------------
 removeElement : function (elem) {
-if (elem.parentNode != null) {
-  var tmpUndoData = {
-    next : this.undoData,
-    mode : 'R',
-    elem : elem,
-    parent : elem.parentNode,
-    nextSibling : elem.nextSibling
-    };
-  this.undoData = tmpUndoData;
-  elem.parentNode.removeChild (elem);
-  this.clearBox ();
-  return true;
+if (!elem.parentNode || elem === this.doc.body || elem === this.doc.documentElement)
+  return false;
+var editor = this, parent = elem.parentNode, sibling = elem.nextSibling;
+return this.recordEdit({
+  removedElement: elem,
+  undo: function () { editor.restoreNode(elem, parent, sibling); },
+  redo: function () {
+    if (!elem.isConnected)
+      throw new Error("Element is no longer connected");
+    elem.remove();
   }
-return false;
+});
 },
 
-//------------------------------------------------------------
-paste : function (o) {
-if (o.parentNode != null) {
-  if (this.undoData.mode == "R") {
-    e = this.undoData.elem;
-    if (e.nodeName == "TR" && o.nodeName != "TR") {
-      var t = this.doc.createElement ("TABLE");
-      var tb = this.doc.createElement ("TBODY");
-      t.appendChild (tb);
-      tb.appendChild (e);
-      e = t;
-      }
-    else if (e.nodeName == "TD" && o.nodeName != "TD") {
-      var t2 = this.doc.createElement ("DIV");
-      
-      var len = e.childNodes.length, i, a = [];
-  
-      for (i=0; i<len; i++)
-        a[i] = e.childNodes.item(i);
-        
-      for (i=0; i<len; i++) {
-        e.removeChild(a[i]);
-        t2.appendChild (e);
-        }     
-      t2.appendChild (e);
-      e = t2;    
-      }
-      
-    if (o.nodeName == "TD" && e.nodeName != "TD")
-      o.insertBefore (e, o.firstChild);
-    else if (o.nodeName == "TR" && e.nodeName != "TR")
-      o.insertBefore (e, o.firstChild.firstChild);
-    else
-      o.parentNode.insertBefore (e, o);
-    this.clearBox ();
-    this.undoData = this.undoData.next;
-    }
-  }
-return true;
+paste : function (target) {
+var previous = this.undoStack[this.undoStack.length - 1];
+if (!previous || !previous.removedElement || !target.parentNode)
+  return false;
+var editor = this, elem = previous.removedElement;
+var parent = target.parentNode;
+return this.recordEdit({
+  undo: function () { elem.remove(); },
+  redo: function () { editor.restoreNode(elem, parent, target); }
+});
 },
 
-//------------------------------------------------------------
-isolateElement : function (o) {
-if (o.parentNode != null) {
-  this.clearBox ();
-
-  var clone;
-  
-  if (document.all) {
-    // this hack prevents a crash on cnn.com
-    if (o.tagName == "TR" || o.tagName == "TD") {
-      var t = this.doc.createElement ("TABLE");
-      var tb = this.doc.createElement ("TBODY");
-      t.appendChild (tb);
-    
-      if (o.tagName == "TD") {
-        var tr = this.doc.createElement ("TR");
-        var td = this.doc.createElement ("TD");
-        td.innerHTML = o.innerHTML;
-        tr.appendChild (td);
-        tb.appendChild (tr);
-        }
-      else {
-        var tr = this.doc.createElement ("TR");
-        var len = o.childNodes.length;
-  
-        for (var i=0; i<len; i++) {
-          var td = o.childNodes.item(i);
-          if (td.nodeName == "TD") {
-            var newTd = this.doc.createElement ("TD");
-            newTd.innerHTML = td.innerHTML;
-            tr.appendChild (newTd);
-            }
-          }
-        tb.appendChild (tr);
-        }
-      clone = t;
-      }
-    else {
-      var div = document.createElement ("DIV");
-      div.innerHTML = o.outerHTML;
-      clone = div.firstChild;
-      }
-    }
-  else {
-    clone = o.cloneNode (true);
-    }
-  
-  clone.style.textAlign = "";
-  clone.style.cssFloat = "none";
-  clone.style.styleFloat = "none";
-  clone.style.position = "";
-  clone.style.padding = "5px";
-  clone.style.margin = "5px";
-    
-  if (clone.tagName == "TR" || clone.tagName == "TD") {
-    if (clone.tagName == "TD") {
-      var tr = this.doc.createElement ("TR");
-      tr.appendChild (clone);
-      clone = tr;
-      }
-    var t = this.doc.createElement ("TABLE");
-    var tb = this.doc.createElement ("TBODY");
-    t.appendChild (tb);
-    tb.appendChild (clone);
-    clone = t;
-    }
-      
-  var tmpUndoData = [];
-  var len = this.doc.body.childNodes.length, i, count = 0, e;
-  
-  for (i=0; i<len; i++) {
-    e = this.doc.body.childNodes.item(i);
-    if (!e.isAardvark) {
-      tmpUndoData[count] = e;
-      count++;
-      }
-    }
-  tmpUndoData.numElems = count;
-    
-  for (i=count-1; i>=0; i--)
-    this.doc.body.removeChild (tmpUndoData[i]);
-  
-  tmpUndoData.mode = 'I';
-  tmpUndoData.bg = this.doc.body.style.background;
-  tmpUndoData.bgc = this.doc.body.style.backgroundColor;
-  tmpUndoData.bgi = this.doc.body.style.backgroundImage;
-  tmpUndoData.m = this.doc.body.style.margin;
-  tmpUndoData.ta = this.doc.body.style.textAlign;
-  tmpUndoData.next = this.undoData;
-  this.undoData = tmpUndoData;
-  
-  this.doc.body.style.width = "100%";
-  this.doc.body.style.background = "none";
-  this.doc.body.style.backgroundColor = "white";
-  this.doc.body.style.backgroundImage = "none";
-  this.doc.body.style.textAlign = "left";
-  
-  this.doc.body.appendChild (clone);
-
-  //this.makeElems ();
-  this.window.scroll (0, 0);
+isolateElement : function (elem) {
+var body = this.doc.body, editor = this;
+if (!body.contains(elem) || elem === body)
+  return false;
+var parent = elem.parentNode, sibling = elem.nextSibling;
+var originals = Array.prototype.slice.call(body.childNodes).filter(function (node) {
+  return !node.isAardvark;
+}).map(function (node) { return {node: node, sibling: node.nextSibling}; });
+var bodyBefore = this.captureAttributes(body, ["style"], false);
+var elementBefore = this.captureAttributes(elem, ["style"], false);
+var container = this.doc.createElement("div");
+var contentParent = container;
+if (elem.tagName === "TR" || elem.tagName === "TD" || elem.tagName === "TH") {
+  var table = this.doc.createElement("table");
+  var tbody = this.doc.createElement("tbody");
+  table.appendChild(tbody);
+  container.appendChild(table);
+  contentParent = tbody;
+  if (elem.tagName !== "TR") {
+    contentParent = this.doc.createElement("tr");
+    tbody.appendChild(contentParent);
   }
-return true;
+}
+return this.recordEdit({
+  undo: function () {
+    if (!body.isConnected || !container.contains(elem) ||
+        (parent !== body && !originals.some(function (entry) {
+          return entry.node === parent || entry.node.contains(parent);
+        })))
+      throw new Error("Original structure has changed");
+    container.remove();
+    for (var i=originals.length-1; i>=0; i--)
+      editor.restoreNode(originals[i].node, body, originals[i].sibling);
+    editor.restoreNode(elem, parent, sibling);
+    editor.restoreAttributes(bodyBefore);
+    editor.restoreAttributes(elementBefore);
+  },
+  redo: function () {
+    if (!body.contains(elem))
+      throw new Error("Selected element is no longer connected");
+    contentParent.appendChild(elem);
+    originals.forEach(function (entry) {
+      if (entry.node.parentNode === body)
+        entry.node.remove();
+    });
+    body.style.width = "100%";
+    body.style.background = "white";
+    body.style.textAlign = "left";
+    elem.style.textAlign = "";
+    elem.style.cssFloat = "none";
+    elem.style.position = "";
+    elem.style.padding = "5px";
+    elem.style.margin = "5px";
+    body.appendChild(container);
+    editor.window.scroll(0, 0);
+  }
+});
 },
 
-//-------------------------------------------------
-deWidthify : function (node, skipClear) {
-switch (node.nodeType) {
-  case 1: // ELEMENT_NODE
-    {
-    if (node.tagName != "IMG") {
-      node.style.width = 'auto';
-      if (node.width)
-        node.width = null;
-      }
-    var isLeaf = (node.childNodes.length == 0 && this.leafElems[node.nodeName]);
-    
-    if (!isLeaf)
-      for (var i=0; i<node.childNodes.length; i++)
-        this.deWidthify (node.childNodes.item(i));
+deWidthify : function (node) {
+return this.editAttributes(node, ["style", "width"], true, function () {
+  var nodes = [node].concat(Array.prototype.slice.call(node.querySelectorAll("*")));
+  nodes.forEach(function (elem) {
+    if (elem.tagName !== "IMG") {
+      elem.style.width = "auto";
+      elem.removeAttribute("width");
     }
-    break;
-  }
-if (!skipClear)
-  this.clearBox ();
-return true;
+  });
+});
 },
 
-//--------------------------------------------------------
-blackOnWhite : function (node, isLink) {
-// this could be done way better using the createCSSRule thing
-switch (node.nodeType) {
-  case 1: // ELEMENT_NODE
-    {
-    if (node.tagName != "IMG") {
-      if (node.tagName == "A")
-        isLink = true;
-      node.style.color = "#000";
-//      node.style.color = (isLink)?"#006":"#000";
-      if (isLink)
-        node.style.textDecoration = "underline";
-      node.style.backgroundColor = "#fff";
-      node.style.fontFamily = "arial";
-      node.style.fontSize = "13px";
-      node.style.textAlign = "left";
-      node.align = "left";
-      node.style.backgroundImage = "";
-
-      var isLeaf = (node.childNodes.length == 0 && this.leafElems[node.nodeName]);
-    
-      if (!isLeaf)
-        for (var i=0; i<node.childNodes.length; i++)
-          this.blackOnWhite(node.childNodes.item(i), isLink);
-      }
+blackOnWhite : function (node) {
+return this.editAttributes(node, ["style", "align"], true, function () {
+  var nodes = [node].concat(Array.prototype.slice.call(node.querySelectorAll("*")));
+  nodes.forEach(function (elem) {
+    if (elem.tagName !== "IMG") {
+      elem.style.color = "#000";
+      if (elem.closest("a"))
+        elem.style.textDecoration = "underline";
+      elem.style.backgroundColor = "#fff";
+      elem.style.fontFamily = "arial";
+      elem.style.fontSize = "13px";
+      elem.style.textAlign = "left";
+      elem.setAttribute("align", "left");
+      elem.style.backgroundImage = "none";
     }
-    break;
-  }
-return true;
+  });
+});
 },
 
 //--------------------------------------------------------
@@ -453,9 +360,9 @@ getOuterHtmlFormatted : function (node, indent) {
 var str = "";
 
 if (this.doc.all) {
-  return "<pre>" + node.outerHTML.replace(/\</g, '&lt;').replace(/\>/g, '&gt;') + "</pre>"; 
+  return "<pre>" + this.escapeHTML(node.outerHTML) + "</pre>";
   }
-  
+
 switch (node.nodeType) {
   case 1: // ELEMENT_NODE
     {
@@ -463,7 +370,7 @@ switch (node.nodeType) {
       break;
     var isLeaf = (node.childNodes.length == 0 && this.leafElems[node.nodeName]);
     var isTbody = (node.nodeName == "TBODY" && node.attributes.length == 0);
-    
+
     if (isTbody) {
       for (var i=0; i<node.childNodes.length; i++)
         str += this.getOuterHtmlFormatted(node.childNodes.item(i), indent);
@@ -475,15 +382,15 @@ switch (node.nodeType) {
         str += "\n<div class='vsblock' style=''>\n<div class='vsline'>\n";
       else
         str += "\n<div class='vsline'>\n";
-      
+
       str += "&lt;<span class='tag'>" +
             node.nodeName.toLowerCase() + "</span>";
       for (var i=0; i<node.attributes.length; i++) {
         if (node.attributes.item(i).nodeValue != null &&
           node.attributes.item(i).nodeValue != '') {
           str += " <span class='pname'>"
-          str += node.attributes.item(i).nodeName;
-          
+          str += this.escapeHTML(node.attributes.item(i).nodeName);
+
           if (node.attributes.item(i).nodeName == "style") {
             var styles = "";
             var a = node.attributes.item(i).nodeValue.split(";");
@@ -491,14 +398,14 @@ switch (node.nodeType) {
               var pair = a[j].split (":");
               if (pair.length == 2) {
                 var s = this.trimSpaces(pair[0]), index;
-                styles += "; <span class='aname'>" + s + "</span>: <span class='aval'>" + this.trimSpaces(pair[1]) + "</span>";
+                styles += "; <span class='aname'>" + this.escapeHTML(s) + "</span>: <span class='aval'>" + this.escapeHTML(this.trimSpaces(pair[1])) + "</span>";
                 }
               }
             styles = styles.substring (2);
             str += "</span>=\"" +  styles + "\"";
             }
           else {
-            str += "</span>=\"<span class='pval'>" +  node.attributes.item(i).nodeValue + "</span>\"";
+            str += "</span>=\"<span class='pval'>" + this.escapeHTML(node.attributes.item(i).nodeValue) + "</span>\"";
             }
           }
         }
@@ -514,29 +421,29 @@ switch (node.nodeType) {
       }
     }
     break;
-      
+
   case 3: //TEXT_NODE
     {
     var v = node.nodeValue;
-    v = v.replace ("<", "&amp;lt;").replace (">", "&amp;gt;"); 
-    
+    v = this.escapeHTML(v);
+
     v = this.trimSpaces (v);
-    if (v != '' && v != '\n' 
+    if (v != '' && v != '\n'
         && v != '\r\n' && v.charCodeAt(0) != 160)
       str += "<div class='vsindent'>" + v + "</div>";
     }
     break;
-    
+
   case 4: // CDATA_SECTION_NODE
-    str += "<div class='vsindent'>&lt;![CDATA[" + node.nodeValue + "]]></div>";
+    str += "<div class='vsindent'>&lt;![CDATA[" + this.escapeHTML(node.nodeValue) + "]]></div>";
     break;
-        
+
   case 5: // ENTITY_REFERENCE_NODE
-    str += "&amp;" + node.nodeName + ";<br>"
+    str += "&amp;" + this.escapeHTML(node.nodeName) + ";<br>"
     break;
 
   case 8: // COMMENT_NODE
-    str += "<div class='vsindent'>&lt;!--" + node.nodeValue + "--></div>"
+    str += "<div class='vsindent'>&lt;!--" + this.escapeHTML(node.nodeValue) + "--></div>"
     break;
   }
 return str;
@@ -561,15 +468,15 @@ domJavascript : function (node, indent) {
 var indentStr = "";
 for (var c=0; c<indent; c++)
   indentStr += "  ";
-  
+
 switch (node.nodeType) {
   case 1: // ELEMENT_NODE
     {
     if (node.style.display == 'none')
       break;
-      
-    var isLeaf = (node.childNodes.length == 0 && this.leafElems[node.nodeName]);  
-    
+
+    var isLeaf = (node.childNodes.length == 0 && this.leafElems[node.nodeName]);
+
     var children = "", numChildren = 0, t, useInnerHTML = false;
     if (!isLeaf) {
       for (var i=0; i<node.childNodes.length; i++) {
@@ -583,18 +490,18 @@ switch (node.nodeType) {
           numChildren++;
           }
         }
-      //  children = indentStr + "   [\n" + children.substring(0, children.length-2) + "\n" + indentStr + "   ]\n"; 
+      //  children = indentStr + "   [\n" + children.substring(0, children.length-2) + "\n" + indentStr + "   ]\n";
       if (numChildren && !useInnerHTML)
-        children = children.substring(0, children.length-2) + "\n"; 
+        children = children.substring(0, children.length-2) + "\n";
       }
 
     var properties = "", styles = "", numProps = 0, sCount = 0;
-    
+
     for (var i=0; i<node.attributes.length; i++) {
       if (node.attributes.item(i).nodeValue != null && node.attributes.item(i).nodeValue != '') {
         var n = node.attributes.item(i).nodeName,
            v = node.attributes.item(i).nodeValue;
-          
+
         switch (n) {
           case "style": {
             var a = node.attributes.item(i).nodeValue.split(";");
@@ -604,12 +511,12 @@ switch (node.nodeType) {
                 var s = this.trimSpaces(pair[0]), index;
                 while ((index = s.indexOf("-")) != -1)
                  s = s.substring(0, index) + s.charAt(index+1).toUpperCase() + s.substring(index+2);
-                 
+
                 if (s == "float") { // yuk
-                 styles += ", <span style='color:#060; font-style:italic'>styleFloat</span>: \"<span style='color:#008;font-style:italic'>" + this.trimSpaces(pair[1]) + "</span>\", <span style='color:#060; font-style:italic'>cssFloat</span>: \"<span style='color:#008;font-style:italic'>" + this.trimSpaces(pair[1]) + "</span>\"";
+                 styles += ", <span style='color:#060; font-style:italic'>styleFloat</span>: \"<span style='color:#008;font-style:italic'>" + this.escapeForJavascript(this.trimSpaces(pair[1])) + "</span>\", <span style='color:#060; font-style:italic'>cssFloat</span>: \"<span style='color:#008;font-style:italic'>" + this.escapeForJavascript(this.trimSpaces(pair[1])) + "</span>\"";
                  }
                 else {
-                 styles += ", <span style='color:#060; font-style:italic'>" + s + "</span>: \"<span style='color:#008;font-style:italic'>" + this.trimSpaces(pair[1]) + "</span>\"";
+                 styles += ", <span style='color:#060; font-style:italic'>" + this.escapeHTML(s) + "</span>: \"<span style='color:#008;font-style:italic'>" + this.escapeForJavascript(this.trimSpaces(pair[1])) + "</span>\"";
                  }
                 sCount++;
                 }
@@ -622,35 +529,35 @@ switch (node.nodeType) {
             var newN;
             if ((newIn = this.camelCaseProps[n]) != null)
               n = newIn;
-            properties += ", <span style='color:#080;font-weight: bold'>" + n + "</span>:\"<span style='color:#00b;font-weight: bold'>" + v + "</span>\"";
+            properties += ", <span style='color:#080;font-weight: bold'>" + this.escapeHTML(n) + "</span>:\"<span style='color:#00b;font-weight: bold'>" + this.escapeForJavascript(v) + "</span>\"";
             numProps++;
             break;
             }
           }
         }
       }
-      
+
     if (useInnerHTML) {
       var ih = node.innerHTML, index;
-      
+
       if ((index = ih.indexOf("useInnerHTML")) != -1) {
         ih = ih.substring(index + "useInnerHTML".length);
         if (index = ih.indexOf("->") != -1)
           ih = ih.substring(index+3);
         }
-      
+
       properties += ", <span style='color:#080;font-weight: bold'>innerHTML</span>:\"<span style='color:#00b;font-weight: bold'>" +  this.escapeForJavascript (ih) + "</span>\"";
-      numProps++;      
+      numProps++;
       numChildren = 0;
       }
-      
+
     if (styles != "") {
       properties = "{<span style='color:#080;font-weight: bold'>style</span>:{" + styles + "}" + properties + "}";
       numProps++;
       }
     else
       properties = "{" + properties.substring(2) + "}";
-    
+
     // element does not start with an indent, does not end with a linefeed or comma
     // children string starts with indent, has indent for each child
 
@@ -668,22 +575,22 @@ switch (node.nodeType) {
         return str + ")";
     }
     break;
-      
+
   case 3: //TEXT_NODE
     {
     var n = node.nodeValue;
     if (node.nodeValue != '')
-      n = this.escapeForJavascript (n);   
-      
+      n = this.escapeForJavascript (n);
+
     n = this.trimSpaces (n);
     if (n.length > 0)
       return "\"<b>" + n + "</b>\"";
     }
     break;
-    
+
   case 4: // CDATA_SECTION_NODE
     break;
-        
+
   case 5: // ENTITY_REFERENCE_NODE
     break;
 
@@ -704,55 +611,6 @@ return true;
 },
 
 //-------------------------------------------------
-undo : function () {
-if (this.undoData == null)
-  return false;
-
-this.clearBox ();
-var ud = this.undoData;
-switch (ud.mode) {
-  case "I": {
-    var a = [];
-    var len = this.doc.body.childNodes.length, i, count = 0, e;
-    
-    for (i=0; i<len; i++)
-      {
-      e = this.doc.body.childNodes.item (i);
-      if (!e.isAardvark)
-        {
-        a[count] = e;
-        count++;
-        }
-      }
-    for (i=count-1; i>=0; i--)
-      this.doc.body.removeChild (a[i]);
-      
-    len = this.undoData.numElems;
-    for (i=0; i<len; i++)
-      this.doc.body.appendChild (this.undoData[i]);
-
-    this.doc.body.style.background = this.undoData.bg;
-    this.doc.body.style.backgroundColor = this.undoData.bgc;
-    this.doc.body.style.backgroundImage = this.undoData.bgi;
-    this.doc.body.style.margin = this.undoData.m;
-    this.doc.body.style.textAlign = this.undoData.ta;
-    break;
-    }
-  case "R": {
-    if (ud.nextSibling)
-      ud.parent.insertBefore (ud.elem, ud.nextSibling);
-    else
-      ud.parent.appendChild (ud.elem);
-    break;
-    }
-  default:
-    return false;
-  }
-this.undoData = this.undoData.next; 
-return true;
-},
-
-//-------------------------------------------------
 showMenu : function () {
 if(window.Logger)Logger.write(this.helpBoxId);
 if (this.helpBoxId != null) {
@@ -767,8 +625,8 @@ for (var i=0; i<this.keyCommands.length; i++) {
     "background-color: #fff'>" + this.keyCommands[i].keystroke +
     "</td><td style='padding: 3px 7px; font-size: .9em;  text-align: left;'>" + this.keyCommands[i].name + "</td></tr>";
   }
-s += "</table><br>" + this.strings.karmaticsPlug; 
-  
+s += "</table><br>" + this.strings.karmaticsPlug;
+
 var dbox = new AardvarkDBox ("#fff2db", true, true, true, this.strings.aardvarkKeystrokes);
 dbox.innerContainer.innerHTML = s;
 dbox.show ();
@@ -808,7 +666,7 @@ getElementXPath: function(elem) {
     path = "/" + xname + path;
   }
 var dbox = new AardvarkDBox ("#fff", true, false, false, "xPath", true);
-dbox.innerContainer.innerHTML = "<pre wrap=\"virtual\" style=\"margin:3; width: 97%\">" + path + "</pre><br>";
+dbox.innerContainer.innerHTML = "<pre wrap=\"virtual\" style=\"margin:3; width: 97%\">" + this.escapeHTML(path) + "</pre><br>";
 dbox.show ();
 },
 
@@ -822,7 +680,7 @@ getElementPath: function(elem) {
 //--------------------------------------------------------
 // make a global variable, available to javascript running inside the page
 // handy tool for javascript developers
-// The bookmarklet version also adds a function to the element that iterates 
+// The bookmarklet version also adds a function to the element that iterates
 // the descendents
 makeGlobalFromElement: function(elem) {
 if (this.isBookmarklet) {
@@ -833,9 +691,7 @@ if (this.isBookmarklet) {
       var dbox = new AardvarkDBox ("#feb", false, true, true);
       dbox.innerContainer.innerHTML = "<p style='color: #000; margin: 3px 0 0 0;'>global variable \"<b>elem" + i + "</b>\" created</p>";
       dbox.show ();
-      setTimeout(function() {
-        aardvark.killDbox(dbox.id);
-      }, 2000);
+      this.scheduleDboxClose(dbox);
 
       return true;
       }
@@ -856,8 +712,8 @@ else {
   var s = "window.elem" + this.doc.aardvarkElemNum + "= document.getElementById('" + elem.id + "');\n";
   if (removeId)
     s += "document.getElementById('" + elem.id + "').id = '';";
-  
-  
+
+
   this.showMessage ("<p style='color: #000; margin: 3px 0 0 0;'>global variable \"<b>elem" + this.doc.aardvarkElemNum + "</b>\" created</p>");
 
   var scriptElem=this.doc.createElement('script');
@@ -875,9 +731,7 @@ showMessage : function (s) {
   var dbox = new AardvarkDBox ("#feb", false, true, true);
   dbox.innerContainer.innerHTML = s;
   dbox.show ();
-  setTimeout(function() {
-    aardvark.killDbox(dbox.id);
-  }, 2000);
+  this.scheduleDboxClose(dbox);
 
 },
 

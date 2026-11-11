@@ -16,15 +16,9 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "allinone.js",
         "aardvark.gif",
         "aardvarkhelp.gif",
-        "closedbox.gif",
-        "aardvarkStrings.js",
-        "aardvarkUtils.js",
-        "aardvarkDBox.js",
-        "aardvarkCommands.js",
-        "aardvarkMain.js"
+        "closedbox.gif"
       ],
       "matches": ["<all_urls>"]
     }
