@@ -1,7 +1,12 @@
 {
   "name": "Aardvark2",
-  "description": "A quick repackaging of Karmatics Aardvark extension. Manifest-V3",
-  "version": "3.0",
+  "description": "Edit and simplify web pages for printing: remove or isolate content, adjust styling, and undo or redo changes.",
+  "version": "3.1.1",
+  "icons": {
+    "32": "icon.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
   "permissions": [
     "activeTab",
     "scripting"
