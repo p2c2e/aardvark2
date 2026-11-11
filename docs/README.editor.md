@@ -19,6 +19,16 @@ hidden in print output and uses a shadow root to isolate its styling.
 Developer integrations that used the page's `window.aardvark`, `window.elem1`,
 `Logger` or `SimplePath` can no longer access the isolated controller. This is an
 intentional boundary; the editor does not require page JavaScript integrations.
+## Keyboard safety
+
+Commands use unmodified single-letter keys outside input, textarea, select,
+contenteditable and ARIA textbox controls. Editable ancestors, composed event
+paths and focused open-shadow controls are checked; document design mode and IME
+composition are ignored. Ctrl, Command, Alt and Shift combinations are left alone.
+Only commands that report success suppress the key's default behavior. Unmapped
+keys and commands without a selected element remain available to the page.
+When a text field is focused, use the toolbar icon to exit instead of `q`.
+
 
 ## Undo and redo
 

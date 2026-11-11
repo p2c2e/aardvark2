@@ -274,6 +274,64 @@ test('expired dialog timers and repeated close cannot affect a reused dialog ID'
   assert.equal(newBox.outerContainer.isConnected, false);
 });
 
+test('keyboard commands leave editable targets and focused fields alone', t => {
+  const {window, document, editor} = withFixture(t,
+    '<p id="selected">Keep</p><input><textarea></textarea><select><option>One</option></select>' +
+    '<div contenteditable="true"><span id="editable">Text</span></div>' +
+    '<div contenteditable="plaintext-only">Plain</div><div role="textbox">Custom</div>');
+  editor.selectedElem = document.getElementById('selected');
+  const press = target => {
+    const event = new window.KeyboardEvent('keypress', {key: 'r', bubbles: true, cancelable: true});
+    target.dispatchEvent(event);
+    assert.equal(event.defaultPrevented, false);
+    assert.ok(document.getElementById('selected'));
+  };
+  for (const target of document.querySelectorAll('input, textarea, select, #editable, [contenteditable], [role="textbox"]'))
+    press(target);
+  document.querySelector('input').focus();
+  press(document.body);
+  document.querySelector('input').blur();
+  const host = document.createElement('div');
+  document.body.appendChild(host);
+  const shadow = host.attachShadow({mode: 'open'});
+  const input = document.createElement('input');
+  shadow.appendChild(input);
+  input.dispatchEvent(new window.KeyboardEvent('keypress', {key: 'r', bubbles: true, composed: true, cancelable: true}));
+  assert.ok(document.getElementById('selected'));
+  input.focus();
+  press(document.body);
+  input.blur();
+  document.designMode = 'on';
+  press(document.body);
+});
+
+test('keyboard suppresses only successfully handled unmodified commands', t => {
+  const {window, document, editor} = withFixture(t);
+  const press = options => {
+    const event = new window.KeyboardEvent('keypress', {bubbles: true, cancelable: true, ...options});
+    document.body.dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+  editor.selectedElem = document.getElementById('selected');
+  for (const modifier of ['ctrlKey', 'metaKey', 'altKey', 'shiftKey', 'isComposing'])
+    assert.equal(press({key: 'r', [modifier]: true}), false);
+  assert.equal(press({key: 'r', keyCode: 229}), false);
+  assert.equal(press({key: 'z'}), false);
+  assert.equal(press({key: 'Enter'}), false);
+  const prevented = new window.KeyboardEvent('keypress', {key: 'r', cancelable: true});
+  prevented.preventDefault();
+  editor.keyDown(prevented);
+  assert.ok(document.getElementById('selected'));
+  editor.selectedElem = null;
+  assert.equal(press({key: 'r'}), false);
+  assert.equal(press({key: 'u'}), false);
+  editor.selectedElem = document.getElementById('selected');
+  assert.equal(press({key: 'r'}), true);
+  assert.equal(document.getElementById('selected'), null);
+  assert.equal(press({key: 'u'}), true);
+  assert.ok(document.getElementById('selected'));
+});
+
 test('active glow survives edits and q removes it and notifies the service worker', t => {
   const {window, document, editor, messages} = withFixture(t);
   const glow = document.querySelector('[data-aardvark-active-glow]');

@@ -386,32 +386,46 @@ aardvark.mouseMoved = false;
 keyDown : function (evt) {
 if (!evt)
   evt = aardvark.window.event;
-var c;
-
-if (evt.ctrlKey || evt.metaKey || evt.altKey)
+if (evt.defaultPrevented || evt.isComposing || evt.keyCode === 229 ||
+    evt.ctrlKey || evt.metaKey || evt.altKey || evt.shiftKey)
   return true;
 
-var keyCode = evt.keyCode ? evt.keyCode :
-      evt.charCode ? evt.charCode :
-      evt.which ? evt.which : 0;
-c = String.fromCharCode(keyCode).toLowerCase();
-var command = aardvark.getByKey(c);
-
-if (command) {
-  if (command.noElementNeeded) {
-    if (command.func.call (aardvark) == true)
-      aardvark.showKeybox (command);
-    }
-  else {
-    if (aardvark.selectedElem &&
-        (command.func.call (aardvark, aardvark.selectedElem) == true))
-      aardvark.showKeybox (command);
-    }
+if (String(aardvark.doc.designMode).toLowerCase() === "on")
+  return true;
+var path = evt.composedPath ? evt.composedPath() : [evt.target];
+var focused = aardvark.doc.activeElement;
+while (focused) {
+  path.push(focused);
+  focused = focused.shadowRoot && focused.shadowRoot.activeElement;
+}
+for (var i = 0; i < path.length; i++) {
+  var node = path[i];
+  while (node && node.nodeType === 1) {
+    var tag = node.tagName.toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select" ||
+        node.isContentEditable ||
+        (node.hasAttribute("contenteditable") &&
+         node.getAttribute("contenteditable").toLowerCase() !== "false") ||
+        node.getAttribute("role") === "textbox")
+      return true;
+    node = node.parentElement;
   }
-if (c < 'a' || c > 'z')
+}
+
+var keyCode = evt.charCode || evt.which || evt.keyCode || 0;
+var c = evt.key && evt.key !== "Unidentified" ? evt.key : String.fromCharCode(keyCode);
+if (c.length !== 1)
   return true;
+var command = aardvark.getByKey(c.toLowerCase());
+if (!command || (!command.noElementNeeded && !aardvark.selectedElem))
+  return true;
+var handled = command.noElementNeeded ? command.func.call(aardvark) :
+  command.func.call(aardvark, aardvark.selectedElem);
+if (handled !== true)
+  return true;
+aardvark.showKeybox(command);
 if (evt.preventDefault)
-  evt.preventDefault ();
+  evt.preventDefault();
 else
   evt.returnValue = false;
 return false;
